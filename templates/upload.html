@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+        }
+        h1 {
+            text-align: center;
+        }
+        form {
+            margin: auto;
+            width: 50%;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        input[type="file"], input[type="submit"] {
+            display: block;
+            margin: 20px auto;
+            padding: 10px;
+        }
+        table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            width: 80%;
+        }
+        table, th, td {
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+        th, td {
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload CSV File for Classification</h1>
+    <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/predict_csv">
+        <input type="file" name="file" accept=".csv" required>
+        <input type="submit" value="Upload and Predict">
+    </form>
+    <div id="response">
+        <!-- Results will be displayed here -->
+    </div>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+
+            try {
+                const response = await fetch('/predict_csv', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                const responseDiv = document.getElementById("response");
+
+                if (result.predictions) {
+                    let tableHTML = `<h2>Predictions</h2><table>
+                        <tr>
+                            ${Object.keys(result.predictions[0]).map(key => `<th>${key}</th>`).join("")}
+                        </tr>`;
+                    
+                    result.predictions.forEach(row => {
+                        tableHTML += `<tr>${Object.values(row).map(value => `<td>${value}</td>`).join("")}</tr>`;
+                    });
+
+                    tableHTML += `</table>`;
+                    responseDiv.innerHTML = tableHTML;
+                } else if (result.error) {
+                    responseDiv.innerHTML = `<h2 style="color: red;">Error</h2><p>${result.error}</p>`;
+                }
+            } catch (error) {
+                alert("An error occurred while uploading the file.");
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>

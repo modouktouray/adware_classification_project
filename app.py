@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import joblib
 import pandas as pd
 import traceback
@@ -6,7 +6,7 @@ import os
 
 app = Flask(__name__)
 
-# Load the saved model
+# Load model
 MODEL_PATH = "model.joblib"
 try:
     model = joblib.load(MODEL_PATH)
@@ -17,7 +17,7 @@ except Exception as e:
 
 @app.route('/')
 def home():
-    return jsonify({"message": "Welcome to the ML Model API! Upload a CSV file to make predictions."})
+    return render_template('upload.html')
 
 @app.route('/predict_csv', methods=['POST'])
 def predict_csv():
@@ -44,7 +44,7 @@ def predict_csv():
         data = pd.read_csv(file)
 
         # Ensure the DataFrame contains the required column format
-        required_columns = ['Source Port', 'Flow Duration', 'Flow IAT Max', 'Fwd Packets/s', 'Flow Packets/s', 'Flow IAT Mean']
+        required_columns = ['Timestamp', 'Flow ID', 'Source Port', 'Destination IP', 'Source IP', 'Flow Duration', 'Flow IAT Max', 'Fwd Packets/s', 'Flow Packets/s', 'Flow IAT Mean']
         for column in required_columns:
             if column not in data.columns:
                 return jsonify({"error": f"Missing required column: {column}"}), 400
@@ -66,5 +66,4 @@ def predict_csv():
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
 if __name__ == '__main__':
-    # Ensure the app runs on port 5000
     app.run(debug=True)
