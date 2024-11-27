@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template
+from sklearn.preprocessing import LabelEncoder
 import joblib
 import pandas as pd
 import traceback
@@ -44,19 +45,33 @@ def predict_csv():
         data = pd.read_csv(file)
 
         # Ensure the DataFrame contains the required column format
-        required_columns = ['Timestamp', 'Flow ID', 'Source Port', 'Destination IP', 'Source IP', 'Flow Duration', 'Flow IAT Max', 'Fwd Packets/s', 'Flow Packets/s', 'Flow IAT Mean']
-        for column in required_columns:
-            if column not in data.columns:
-                return jsonify({"error": f"Missing required column: {column}"}), 400
+        required_columns = ['Timestamp', 'Flow ID', 'Fwd Packets/s', 'Flow Packets/s', 'Flow Duration', 'Flow IAT Mean', 'Flow IAT Max', 'Destination IP']
+        missing_columns = [col for col in required_columns if col not in data.columns]
+        if missing_columns:
+            return jsonify({"error": f"Missing required columns: {missing_columns}"}), 400
 
-       
-        features = data[required_columns]
+        # Extract features
+        features = data[required_columns].copy()
+
+        # Convert 'Timestamp' to seconds since epoch
+        if 'Timestamp' in features.columns:
+            features['Timestamp'] = pd.to_datetime(features['Timestamp'], errors='coerce').astype('int64') // 10**9
+
+        # Handle categorical columns with LabelEncoder
+        label_encoder = LabelEncoder()
+        categorical_columns = features.select_dtypes(include=['object']).columns
+        for col in categorical_columns:
+            features[col] = label_encoder.fit_transform(features[col].astype(str))  # Ensure all values are string for consistency
 
         # Make predictions
         predictions = model.predict(features)
 
-        # Add predictions to the original DataFrame
+        # Add predictions as a column
         data['Predictions'] = predictions
+
+        # Reorder columns to ensure 'Predictions' is at the end
+        reordered_columns = [col for col in data.columns if col != 'Predictions'] + ['Predictions']
+        data = data[reordered_columns]
 
         # Convert the result to JSON
         result = data.to_dict(orient='records')
@@ -64,6 +79,7 @@ def predict_csv():
 
     except Exception as e:
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
